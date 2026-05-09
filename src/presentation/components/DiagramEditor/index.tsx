@@ -24,15 +24,8 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 
 import {
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Trash2,
-  ShieldCheck,
-  X,
-  AlertCircle,
-  AlertTriangle,
-  Info,
+  ZoomIn, ZoomOut, Maximize2, Trash2,
+  ShieldCheck, X, AlertCircle, AlertTriangle, Info,
 } from "lucide-react";
 
 import { useEditorStore, DEFAULT_CONNECTION_KIND } from "@/lib/store";
@@ -47,7 +40,7 @@ import { ValidationEngine } from "@/domain/services/ValidationEngine";
 import { ArcadiaNode, type ArcadiaNodeData } from "./ArcadiaNode";
 
 // ----------------------------------------------------------------
-// Node types — stable reference (outside component)
+// Node types — stable reference
 // ----------------------------------------------------------------
 
 const NODE_TYPES = { arcadia: ArcadiaNode };
@@ -58,7 +51,8 @@ const NODE_TYPES = { arcadia: ArcadiaNode };
 
 function elementToNode(
   el: ArcadiaElement,
-  errorIds: Set<string>
+  errorIds: Set<string>,
+  highlightIds: Set<string>
 ): Node<ArcadiaNodeData> {
   return {
     id: el.id,
@@ -69,6 +63,7 @@ function elementToNode(
       kind: el.kind,
       name: el.name,
       hasError: errorIds.has(el.id),
+      isInTraceChain: highlightIds.has(el.id),
     },
     style: { width: el.size?.width ?? 160 },
   };
@@ -87,7 +82,7 @@ function connectionToEdge(conn: ArcadiaConnection): Edge {
 }
 
 // ----------------------------------------------------------------
-// Canvas Toolbar — must live INSIDE <ReactFlow> to use useReactFlow
+// Canvas Toolbar — inside <ReactFlow> for useReactFlow access
 // ----------------------------------------------------------------
 
 function CanvasToolbar() {
@@ -95,74 +90,47 @@ function CanvasToolbar() {
   const nodes = useNodes();
   const edges = useEdges();
 
-  const deleteElement = useEditorStore((s) => s.deleteElement);
+  const deleteElement    = useEditorStore((s) => s.deleteElement);
   const deleteConnection = useEditorStore((s) => s.deleteConnection);
-  const runValidation = useEditorStore((s) => s.runValidation);
-  const validationResults = useEditorStore((s) => s.validationResults);
-  const validationVisible = useEditorStore((s) => s.validationVisible);
+  const runValidation    = useEditorStore((s) => s.runValidation);
+  const validationResults   = useEditorStore((s) => s.validationResults);
   const toggleValidationPanel = useEditorStore((s) => s.toggleValidationPanel);
 
   const selectedNodes = nodes.filter((n) => n.selected);
   const selectedEdges = edges.filter((e) => e.selected);
-  const hasSelection = selectedNodes.length > 0 || selectedEdges.length > 0;
+  const hasSelection  = selectedNodes.length > 0 || selectedEdges.length > 0;
 
-  const errorCount = validationResults.filter(
-    (r) => r.severity === "error"
-  ).length;
-  const warnCount = validationResults.filter(
-    (r) => r.severity === "warning"
-  ).length;
+  const errorCount = validationResults.filter((r) => r.severity === "error").length;
+  const warnCount  = validationResults.filter((r) => r.severity === "warning").length;
 
   const handleDelete = () => {
     selectedNodes.forEach((n) => deleteElement(n.id));
     selectedEdges.forEach((e) => deleteConnection(e.id));
   };
 
-  const btn =
-    "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors";
+  const btn = "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors";
 
   return (
     <Panel position="top-center">
       <div className="flex items-center gap-1 rounded-xl border border-neutral-200 bg-white px-2 py-1.5 shadow-md">
-        {/* Zoom controls */}
-        <button
-          title="Fit View"
-          onClick={() => fitView({ padding: 0.2, duration: 300 })}
-          className={`${btn} text-neutral-600 hover:bg-neutral-100`}
-        >
-          <Maximize2 size={14} />
-          <span>Fit</span>
+        <button title="Fit View" onClick={() => fitView({ padding: 0.2, duration: 300 })}
+          className={`${btn} text-neutral-600 hover:bg-neutral-100`}>
+          <Maximize2 size={14} /><span>Fit</span>
         </button>
-        <button
-          title="Zoom In"
-          onClick={() => zoomIn({ duration: 200 })}
-          className={`${btn} text-neutral-600 hover:bg-neutral-100`}
-        >
+        <button title="Zoom In" onClick={() => zoomIn({ duration: 200 })}
+          className={`${btn} text-neutral-600 hover:bg-neutral-100`}>
           <ZoomIn size={14} />
         </button>
-        <button
-          title="Zoom Out"
-          onClick={() => zoomOut({ duration: 200 })}
-          className={`${btn} text-neutral-600 hover:bg-neutral-100`}
-        >
+        <button title="Zoom Out" onClick={() => zoomOut({ duration: 200 })}
+          className={`${btn} text-neutral-600 hover:bg-neutral-100`}>
           <ZoomOut size={14} />
         </button>
 
         <div className="mx-1 h-4 w-px bg-neutral-200" />
 
-        {/* Delete */}
-        <button
-          title="Delete selected (Del)"
-          onClick={handleDelete}
-          disabled={!hasSelection}
-          className={`${btn} ${
-            hasSelection
-              ? "text-red-600 hover:bg-red-50"
-              : "cursor-not-allowed text-neutral-300"
-          }`}
-        >
-          <Trash2 size={14} />
-          <span>Delete</span>
+        <button title="Delete selected (Del)" onClick={handleDelete} disabled={!hasSelection}
+          className={`${btn} ${hasSelection ? "text-red-600 hover:bg-red-50" : "cursor-not-allowed text-neutral-300"}`}>
+          <Trash2 size={14} /><span>Delete</span>
           {hasSelection && (
             <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
               {selectedNodes.length + selectedEdges.length}
@@ -172,24 +140,14 @@ function CanvasToolbar() {
 
         <div className="mx-1 h-4 w-px bg-neutral-200" />
 
-        {/* Validate */}
-        <button
-          title="Validate model"
-          onClick={runValidation}
-          className={`${btn} text-blue-600 hover:bg-blue-50`}
-        >
-          <ShieldCheck size={14} />
-          <span>Validate</span>
+        <button title="Validate model" onClick={runValidation}
+          className={`${btn} text-blue-600 hover:bg-blue-50`}>
+          <ShieldCheck size={14} /><span>Validate</span>
         </button>
+
         {validationResults.length > 0 && (
-          <button
-            onClick={toggleValidationPanel}
-            className={`${btn} ${
-              errorCount > 0
-                ? "text-red-600 hover:bg-red-50"
-                : "text-amber-600 hover:bg-amber-50"
-            }`}
-          >
+          <button onClick={toggleValidationPanel}
+            className={`${btn} ${errorCount > 0 ? "text-red-600 hover:bg-red-50" : "text-amber-600 hover:bg-amber-50"}`}>
             {errorCount > 0 && (
               <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
                 {errorCount} ×
@@ -208,55 +166,42 @@ function CanvasToolbar() {
 }
 
 // ----------------------------------------------------------------
-// Validation Panel — inside <ReactFlow>
+// Validation Panel
 // ----------------------------------------------------------------
 
-function ValidationPanel({ diagramId }: { diagramId: string }) {
-  const validationResults = useEditorStore((s) => s.validationResults);
-  const validationVisible = useEditorStore((s) => s.validationVisible);
+function ValidationPanel() {
+  const validationResults    = useEditorStore((s) => s.validationResults);
+  const validationVisible    = useEditorStore((s) => s.validationVisible);
   const toggleValidationPanel = useEditorStore((s) => s.toggleValidationPanel);
-  const selectElement = useEditorStore((s) => s.selectElement);
+  const navigateTo           = useEditorStore((s) => s.navigateTo);
 
   if (!validationVisible || validationResults.length === 0) return null;
 
   const sevIcon = (r: ValidationResult) => {
-    if (r.severity === "error")
-      return <AlertCircle size={13} className="shrink-0 text-red-500" />;
-    if (r.severity === "warning")
-      return <AlertTriangle size={13} className="shrink-0 text-amber-500" />;
+    if (r.severity === "error")   return <AlertCircle   size={13} className="shrink-0 text-red-500" />;
+    if (r.severity === "warning") return <AlertTriangle size={13} className="shrink-0 text-amber-500" />;
     return <Info size={13} className="shrink-0 text-blue-500" />;
   };
 
   return (
     <Panel position="bottom-left">
       <div className="w-80 rounded-xl border border-neutral-200 bg-white shadow-lg">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-100 px-3 py-2">
           <span className="text-xs font-semibold text-neutral-700">
             نتایج اعتبارسنجی ({validationResults.length})
           </span>
-          <button
-            onClick={toggleValidationPanel}
-            className="rounded p-0.5 text-neutral-400 hover:text-neutral-700"
-          >
+          <button onClick={toggleValidationPanel}
+            className="rounded p-0.5 text-neutral-400 hover:text-neutral-700">
             <X size={13} />
           </button>
         </div>
-
-        {/* Results list */}
-        <ul className="max-h-52 overflow-y-auto divide-y divide-neutral-50">
+        <ul className="max-h-52 divide-y divide-neutral-50 overflow-y-auto">
           {validationResults.map((r, i) => (
-            <li
-              key={i}
-              className={`flex items-start gap-2 px-3 py-2 text-[11px] ${
-                r.elementId
-                  ? "cursor-pointer hover:bg-neutral-50"
-                  : ""
-              }`}
-              onClick={() => r.elementId && selectElement(r.elementId)}
-            >
+            <li key={i}
+              className={`flex items-start gap-2 px-3 py-2 text-[11px] ${r.elementId ? "cursor-pointer hover:bg-neutral-50" : ""}`}
+              onClick={() => r.elementId && navigateTo(r.elementId)}>
               {sevIcon(r)}
-              <span className="text-neutral-600 leading-tight">{r.message}</span>
+              <span className="leading-tight text-neutral-600">{r.message}</span>
             </li>
           ))}
         </ul>
@@ -266,7 +211,7 @@ function ValidationPanel({ diagramId }: { diagramId: string }) {
 }
 
 // ----------------------------------------------------------------
-// Public DiagramEditor — handles null case
+// Public DiagramEditor
 // ----------------------------------------------------------------
 
 interface DiagramEditorProps {
@@ -281,71 +226,89 @@ export default function DiagramEditor({ diagram }: DiagramEditorProps) {
       </div>
     );
   }
-
   return <DiagramCanvas key={diagram.id} diagram={diagram} />;
 }
 
 // ----------------------------------------------------------------
-// DiagramCanvas — the actual React Flow canvas
+// DiagramCanvas
 // ----------------------------------------------------------------
 
 function DiagramCanvas({ diagram }: { diagram: Diagram }) {
-  // Store
-  const storeElements = useEditorStore((s) =>
-    s.elements.filter((e) => e.diagramId === diagram.id)
-  );
-  const storeConnections = useEditorStore((s) =>
-    s.connections.filter((c) => c.diagramId === diagram.id)
-  );
-  const allElements = useEditorStore((s) => s.elements);
-  const validationResults = useEditorStore((s) => s.validationResults);
+  const storeElements    = useEditorStore((s) => s.elements.filter((e) => e.diagramId === diagram.id));
+  const storeConnections = useEditorStore((s) => s.connections.filter((c) => c.diagramId === diagram.id));
+  const allElements      = useEditorStore((s) => s.elements);
+  const validationResults     = useEditorStore((s) => s.validationResults);
+  const crossViewHighlightIds = useEditorStore((s) => s.crossViewHighlightIds);
 
   const updateElementPosition = useEditorStore((s) => s.updateElementPosition);
-  const addElementToStore = useEditorStore((s) => s.addElement);
-  const addConnectionToStore = useEditorStore((s) => s.addConnection);
-  const selectElement = useEditorStore((s) => s.selectElement);
+  const addElementToStore     = useEditorStore((s) => s.addElement);
+  const addConnectionToStore  = useEditorStore((s) => s.addConnection);
+  const selectElement         = useEditorStore((s) => s.selectElement);
+  const clearFocus            = useEditorStore((s) => s.clearFocus);
+  const focusElementId        = useEditorStore((s) => s.focusElementId);
 
-  // Error element IDs for badge display
   const errorElementIds = useMemo(
     () => new Set(validationResults.map((r) => r.elementId).filter(Boolean) as string[]),
     [validationResults]
   );
 
+  const highlightSet = useMemo(
+    () => new Set(crossViewHighlightIds),
+    [crossViewHighlightIds]
+  );
+
   // Local React Flow state
   const [nodes, setNodes] = useState<Node[]>(() =>
-    storeElements.map((el) => elementToNode(el, errorElementIds))
+    storeElements.map((el) => elementToNode(el, errorElementIds, highlightSet))
   );
   const [edges, setEdges] = useState<Edge[]>(() =>
     storeConnections.map(connectionToEdge)
   );
 
-  // Sync when store elements change (new drop or name update)
-  const prevElCount = useRef(storeElements.length);
+  // Re-sync nodes when store data or highlight changes
   useEffect(() => {
-    if (storeElements.length !== prevElCount.current) {
-      prevElCount.current = storeElements.length;
-    }
-    // Always re-derive to pick up name/error changes
-    setNodes(storeElements.map((el) => elementToNode(el, errorElementIds)));
-  }, [storeElements, errorElementIds]);
+    setNodes(storeElements.map((el) => elementToNode(el, errorElementIds, highlightSet)));
+  }, [storeElements, errorElementIds, highlightSet]);
 
   useEffect(() => {
     setEdges(storeConnections.map(connectionToEdge));
   }, [storeConnections.length]); // eslint-disable-line
 
-  // RF instance for coordinate conversion
+  // RF instance
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  // On init: check if we need to focus a specific element (cross-view navigation)
+  const handleInit = useCallback(
+    (instance: ReactFlowInstance) => {
+      setRfInstance(instance);
+      const fid = focusElementId;
+      if (fid) {
+        setTimeout(() => {
+          instance.fitView({
+            nodes: [{ id: fid }],
+            padding: 0.6,
+            duration: 500,
+            maxZoom: 1.5,
+          });
+          clearFocus();
+        }, 120);
+      }
+    },
+    [focusElementId, clearFocus]
+  );
+
   // ---- Handlers ----
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((prev) => applyNodeChanges(changes, prev));
-  }, []);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((prev) => applyNodeChanges(changes, prev)),
+    []
+  );
 
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((prev) => applyEdgeChanges(changes, prev));
-  }, []);
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => setEdges((prev) => applyEdgeChanges(changes, prev)),
+    []
+  );
 
   const onNodeDragStop = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -362,16 +325,8 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
       if (!sourceEl || !targetEl) return;
 
       const connKind = DEFAULT_CONNECTION_KIND[diagram.type];
-      const allowed = ValidationEngine.isConnectionAllowed(
-        sourceEl.kind,
-        targetEl.kind,
-        connKind
-      );
-      if (!allowed) {
-        // Non-blocking toast alternative: just warn in console and skip
-        console.warn(
-          `Connection blocked: ${sourceEl.kind} → ${targetEl.kind} via ${connKind}`
-        );
+      if (!ValidationEngine.isConnectionAllowed(sourceEl.kind, targetEl.kind, connKind)) {
+        console.warn(`Connection blocked: ${sourceEl.kind} → ${targetEl.kind} via ${connKind}`);
         return;
       }
 
@@ -391,31 +346,24 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
 
       addConnectionToStore(newConn);
       setEdges((prev) =>
-        addEdge(
-          {
-            ...connection,
-            id: newConn.id,
-            animated: connKind === "RealizationLink",
-            markerEnd: { type: MarkerType.ArrowClosed },
-            style: { strokeWidth: 2 },
-          },
-          prev
-        )
+        addEdge({
+          ...connection,
+          id: newConn.id,
+          animated: connKind === "RealizationLink",
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: { strokeWidth: 2 },
+        }, prev)
       );
     },
     [allElements, diagram, addConnectionToStore]
   );
 
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      selectElement(node.id);
-    },
+    (_: React.MouseEvent, node: Node) => selectElement(node.id),
     [selectElement]
   );
 
-  const onPaneClick = useCallback(() => {
-    selectElement(null);
-  }, [selectElement]);
+  const onPaneClick = useCallback(() => selectElement(null), [selectElement]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -428,12 +376,10 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
       const kind = e.dataTransfer.getData("application/arcadia-kind") as ElementKind;
       if (!kind) return;
 
-      const position = rfInstance?.screenToFlowPosition({
-        x: e.clientX,
-        y: e.clientY,
-      }) ?? { x: 150, y: 150 };
+      const position = rfInstance?.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+        ?? { x: 150, y: 150 };
 
-      const newEl: ArcadiaElement = {
+      addElementToStore({
         id: crypto.randomUUID(),
         modelId: diagram.modelId,
         diagramId: diagram.id,
@@ -445,9 +391,7 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
         properties: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
-
-      addElementToStore(newEl);
+      });
     },
     [rfInstance, diagram, addElementToStore]
   );
@@ -463,7 +407,7 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
-        onInit={setRfInstance}
+        onInit={handleInit}
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={NODE_TYPES}
@@ -475,7 +419,7 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={3} zoomable pannable style={{ borderRadius: 8 }} />
         <CanvasToolbar />
-        <ValidationPanel diagramId={diagram.id} />
+        <ValidationPanel />
       </ReactFlow>
     </div>
   );

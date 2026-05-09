@@ -54,6 +54,7 @@ export interface ArcadiaNodeData {
   kind: ElementKind;
   name: string;
   hasError?: boolean;
+  isInTraceChain?: boolean;
 }
 
 // ----------------------------------------------------------------
@@ -106,12 +107,16 @@ function ArcadiaNodeComponent({ data, selected }: NodeProps<ArcadiaNodeData>) {
     ? "#ef4444"
     : selected
     ? "#1d4ed8"
+    : data.isInTraceChain
+    ? "#7c3aed"
     : style.border;
 
   const boxShadow = data.hasError
     ? "0 0 0 3px #fecaca"
     : selected
     ? "0 0 0 3px #bfdbfe"
+    : data.isInTraceChain
+    ? "0 0 0 3px #ede9fe"
     : "0 1px 3px rgba(0,0,0,0.08)";
 
   return (
@@ -152,15 +157,13 @@ function ArcadiaNodeComponent({ data, selected }: NodeProps<ArcadiaNodeData>) {
           {shortLabel}
         </span>
         {data.hasError && (
-          <span
-            style={{
-              color: "#ef4444",
-              fontSize: 11,
-              fontWeight: 700,
-              marginLeft: "auto",
-            }}
-          >
+          <span style={{ color: "#ef4444", fontSize: 11, fontWeight: 700, marginLeft: "auto" }}>
             ⚠
+          </span>
+        )}
+        {data.isInTraceChain && !data.hasError && (
+          <span style={{ color: "#7c3aed", fontSize: 11, marginLeft: "auto" }} title="در زنجیره ردیابی">
+            ⬡
           </span>
         )}
       </div>
