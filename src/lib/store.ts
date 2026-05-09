@@ -9,7 +9,10 @@ import type {
   Connection,
   DiagramType,
   ElementKind,
+  ArcadiaView,
+  ValidationResult,
 } from "@/domain/entities";
+import { ValidationEngine } from "@/domain/services/ValidationEngine";
 
 // ----------------------------------------------------------------
 // Mock seed data
@@ -176,6 +179,19 @@ export const DEFAULT_CONNECTION_KIND: Record<DiagramType, ElementKind> = {
   EPBS: "RealizationLink",
 };
 
+// Diagram view mapping
+export const DIAGRAM_VIEW: Record<DiagramType, ArcadiaView> = {
+  OEBD: "OA",
+  OAD: "OA",
+  SAB: "SA",
+  SFCD: "SA",
+  LAB: "LA",
+  LDFD: "LA",
+  PAB: "PA",
+  PDD: "PA",
+  EPBS: "EPBS",
+};
+
 // ----------------------------------------------------------------
 // Store interface
 // ----------------------------------------------------------------
@@ -188,21 +204,37 @@ export interface EditorStore {
   connections: Connection[];
   selectedDiagramId: string;
   selectedElementId: string | null;
+  validationResults: ValidationResult[];
+  validationVisible: boolean;
 
+  // selection
   selectDiagram: (id: string) => void;
   selectElement: (id: string | null) => void;
+
+  // element mutations
   addElement: (element: ArcadiaElement) => void;
-  addConnection: (connection: Connection) => void;
+  updateElementName: (id: string, name: string) => void;
+  updateElementDescription: (id: string, description: string) => void;
   updateElementPosition: (id: string, x: number, y: number) => void;
   deleteElement: (id: string) => void;
+
+  // connection mutations
+  addConnection: (connection: Connection) => void;
   deleteConnection: (id: string) => void;
+
+  // diagram mutations
+  createDiagram: (modelId: string, name: string, type: DiagramType) => void;
+
+  // validation
+  runValidation: () => void;
+  toggleValidationPanel: () => void;
 }
 
 // ----------------------------------------------------------------
 // Zustand store
 // ----------------------------------------------------------------
 
-export const useEditorStore = create<EditorStore>((set) => ({
+export const useEditorStore = create<EditorStore>((set, get) => ({
   project: mockProject,
   models: [mockModel],
   diagrams: mockDiagrams,
@@ -210,53 +242,52 @@ export const useEditorStore = create<EditorStore>((set) => ({
   connections: mockConnections,
   selectedDiagramId: "d1",
   selectedElementId: null,
+  validationResults: [],
+  validationVisible: false,
 
+  // ---- Selection ----
   selectDiagram: (id) => set({ selectedDiagramId: id, selectedElementId: null }),
   selectElement: (id) => set({ selectedElementId: id }),
 
+  // ---- Element mutations ----
   addElement: (element) =>
     set((state) => ({
       elements: [...state.elements, element],
       diagrams: state.diagrams.map((d) =>
         d.id === element.diagramId
-          ? {
-              ...d,
-              elementIds: [...d.elementIds, element.id],
-              updatedAt: new Date(),
-            }
+          ? { ...d, elementIds: [...d.elementIds, element.id], updatedAt: new Date() }
           : d
       ),
     })),
 
-  addConnection: (connection) =>
+  updateElementName: (id, name) =>
     set((state) => ({
-      connections: [...state.connections, connection],
-      diagrams: state.diagrams.map((d) =>
-        d.id === connection.diagramId
-          ? {
-              ...d,
-              connectionIds: [...d.connectionIds, connection.id],
-              updatedAt: new Date(),
-            }
-          : d
+      elements: state.elements.map((el) =>
+        el.id === id ? { ...el, name, updatedAt: new Date() } : el
+      ),
+    })),
+
+  updateElementDescription: (id, description) =>
+    set((state) => ({
+      elements: state.elements.map((el) =>
+        el.id === id ? { ...el, description, updatedAt: new Date() } : el
       ),
     })),
 
   updateElementPosition: (id, x, y) =>
     set((state) => ({
       elements: state.elements.map((el) =>
-        el.id === id
-          ? { ...el, position: { x, y }, updatedAt: new Date() }
-          : el
+        el.id === id ? { ...el, position: { x, y }, updatedAt: new Date() } : el
       ),
     })),
 
   deleteElement: (id) =>
     set((state) => {
-      const removedConns = state.connections.filter(
-        (c) => c.sourceId === id || c.targetId === id
+      const removedConnIds = new Set(
+        state.connections
+          .filter((c) => c.sourceId === id || c.targetId === id)
+          .map((c) => c.id)
       );
-      const removedConnIds = new Set(removedConns.map((c) => c.id));
       return {
         elements: state.elements.filter((el) => el.id !== id),
         connections: state.connections.filter(
@@ -271,6 +302,21 @@ export const useEditorStore = create<EditorStore>((set) => ({
       };
     }),
 
+  // ---- Connection mutations ----
+  addConnection: (connection) =>
+    set((state) => ({
+      connections: [...state.connections, connection],
+      diagrams: state.diagrams.map((d) =>
+        d.id === connection.diagramId
+          ? {
+              ...d,
+              connectionIds: [...d.connectionIds, connection.id],
+              updatedAt: new Date(),
+            }
+          : d
+      ),
+    })),
+
   deleteConnection: (id) =>
     set((state) => ({
       connections: state.connections.filter((c) => c.id !== id),
@@ -279,4 +325,43 @@ export const useEditorStore = create<EditorStore>((set) => ({
         connectionIds: d.connectionIds.filter((cid) => cid !== id),
       })),
     })),
+
+  // ---- Diagram mutations ----
+  createDiagram: (modelId, name, type) => {
+    const diagram: Diagram = {
+      id: crypto.randomUUID(),
+      modelId,
+      name,
+      view: DIAGRAM_VIEW[type],
+      type,
+      elementIds: [],
+      connectionIds: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    set((state) => ({
+      diagrams: [...state.diagrams, diagram],
+      models: state.models.map((m) =>
+        m.id === modelId
+          ? { ...m, diagramIds: [...m.diagramIds, diagram.id] }
+          : m
+      ),
+      selectedDiagramId: diagram.id,
+      selectedElementId: null,
+    }));
+  },
+
+  // ---- Validation ----
+  runValidation: () => {
+    const state = get();
+    const results = ValidationEngine.validateModel({
+      diagrams: state.diagrams,
+      allElements: state.elements,
+      allConnections: state.connections,
+    });
+    set({ validationResults: results, validationVisible: true });
+  },
+
+  toggleValidationPanel: () =>
+    set((state) => ({ validationVisible: !state.validationVisible })),
 }));
