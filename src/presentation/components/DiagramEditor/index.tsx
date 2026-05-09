@@ -25,7 +25,7 @@ import "reactflow/dist/style.css";
 
 import {
   ZoomIn, ZoomOut, Maximize2, Trash2,
-  ShieldCheck, X, AlertCircle, AlertTriangle, Info,
+  ShieldCheck, AlertCircle, AlertTriangle,
 } from "lucide-react";
 
 import { useEditorStore, DEFAULT_CONNECTION_KIND } from "@/lib/store";
@@ -34,7 +34,6 @@ import type {
   Element as ArcadiaElement,
   Connection as ArcadiaConnection,
   ElementKind,
-  ValidationResult,
 } from "@/domain/entities";
 import { ValidationEngine } from "@/domain/services/ValidationEngine";
 import { ArcadiaNode, type ArcadiaNodeData } from "./ArcadiaNode";
@@ -93,8 +92,7 @@ function CanvasToolbar() {
   const deleteElement    = useEditorStore((s) => s.deleteElement);
   const deleteConnection = useEditorStore((s) => s.deleteConnection);
   const runValidation    = useEditorStore((s) => s.runValidation);
-  const validationResults   = useEditorStore((s) => s.validationResults);
-  const toggleValidationPanel = useEditorStore((s) => s.toggleValidationPanel);
+  const validationResults = useEditorStore((s) => s.validationResults);
 
   const selectedNodes = nodes.filter((n) => n.selected);
   const selectedEdges = edges.filter((e) => e.selected);
@@ -140,75 +138,26 @@ function CanvasToolbar() {
 
         <div className="mx-1 h-4 w-px bg-neutral-200" />
 
+        {/* Validate — opens ValidationBar panel */}
         <button title="Validate model" onClick={runValidation}
           className={`${btn} text-blue-600 hover:bg-blue-50`}>
           <ShieldCheck size={14} /><span>Validate</span>
+          {errorCount > 0 && (
+            <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+              {errorCount}
+            </span>
+          )}
+          {errorCount === 0 && warnCount > 0 && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-600">
+              {warnCount}
+            </span>
+          )}
         </button>
-
-        {validationResults.length > 0 && (
-          <button onClick={toggleValidationPanel}
-            className={`${btn} ${errorCount > 0 ? "text-red-600 hover:bg-red-50" : "text-amber-600 hover:bg-amber-50"}`}>
-            {errorCount > 0 && (
-              <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
-                {errorCount} ×
-              </span>
-            )}
-            {warnCount > 0 && (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-600">
-                {warnCount} ⚠
-              </span>
-            )}
-          </button>
-        )}
       </div>
     </Panel>
   );
 }
 
-// ----------------------------------------------------------------
-// Validation Panel
-// ----------------------------------------------------------------
-
-function ValidationPanel() {
-  const validationResults    = useEditorStore((s) => s.validationResults);
-  const validationVisible    = useEditorStore((s) => s.validationVisible);
-  const toggleValidationPanel = useEditorStore((s) => s.toggleValidationPanel);
-  const navigateTo           = useEditorStore((s) => s.navigateTo);
-
-  if (!validationVisible || validationResults.length === 0) return null;
-
-  const sevIcon = (r: ValidationResult) => {
-    if (r.severity === "error")   return <AlertCircle   size={13} className="shrink-0 text-red-500" />;
-    if (r.severity === "warning") return <AlertTriangle size={13} className="shrink-0 text-amber-500" />;
-    return <Info size={13} className="shrink-0 text-blue-500" />;
-  };
-
-  return (
-    <Panel position="bottom-left">
-      <div className="w-80 rounded-xl border border-neutral-200 bg-white shadow-lg">
-        <div className="flex items-center justify-between border-b border-neutral-100 px-3 py-2">
-          <span className="text-xs font-semibold text-neutral-700">
-            نتایج اعتبارسنجی ({validationResults.length})
-          </span>
-          <button onClick={toggleValidationPanel}
-            className="rounded p-0.5 text-neutral-400 hover:text-neutral-700">
-            <X size={13} />
-          </button>
-        </div>
-        <ul className="max-h-52 divide-y divide-neutral-50 overflow-y-auto">
-          {validationResults.map((r, i) => (
-            <li key={i}
-              className={`flex items-start gap-2 px-3 py-2 text-[11px] ${r.elementId ? "cursor-pointer hover:bg-neutral-50" : ""}`}
-              onClick={() => r.elementId && navigateTo(r.elementId)}>
-              {sevIcon(r)}
-              <span className="leading-tight text-neutral-600">{r.message}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </Panel>
-  );
-}
 
 // ----------------------------------------------------------------
 // Public DiagramEditor
@@ -419,7 +368,6 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={3} zoomable pannable style={{ borderRadius: 8 }} />
         <CanvasToolbar />
-        <ValidationPanel />
       </ReactFlow>
     </div>
   );

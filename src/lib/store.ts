@@ -178,6 +178,7 @@ export interface EditorStore extends PersistedState {
 
   // Validation
   runValidation: () => void;
+  silentValidate: () => void;
   toggleValidationPanel: () => void;
 
   // Persistence
@@ -382,6 +383,17 @@ export const useEditorStore = create<EditorStore>()(
           allConnections: s.connections,
         });
         set({ validationResults: results, validationVisible: true });
+      },
+
+      // Run validation silently (update results without opening panel)
+      silentValidate: () => {
+        const s = get();
+        const results = ValidationEngine.validateModel({
+          diagrams: s.diagrams,
+          allElements: s.elements,
+          allConnections: s.connections,
+        });
+        set({ validationResults: results });
       },
 
       toggleValidationPanel: () =>
