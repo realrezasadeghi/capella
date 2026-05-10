@@ -1,174 +1,307 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Download, Upload, RotateCcw, CheckCircle2 } from "lucide-react";
-import { useEditorStore, type ModelSnapshot } from "@/lib/store";
-import { useLiveValidation } from "@/lib/useLiveValidation";
-import ModelBrowser   from "@/presentation/components/ModelBrowser";
-import DiagramEditor  from "@/presentation/components/DiagramEditor";
-import Palette        from "@/presentation/components/Palette";
-import PropertiesPanel from "@/presentation/components/PropertiesPanel";
-import ValidationBar  from "@/presentation/components/ValidationBar";
+import { useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Layers, ArrowRight, GitMerge, ShieldCheck,
+  Network, Zap, GitBranch, ChevronRight,
+} from "lucide-react";
+import { useAuthStore } from "@/lib/authStore";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-export default function Home() {
-  // ---- Live validation (debounced, silent) ----
-  useLiveValidation();
+// ----------------------------------------------------------------
+// Data
+// ----------------------------------------------------------------
 
-  // ---- Store selectors ----
-  const project          = useEditorStore((s) => s.project);
-  const models           = useEditorStore((s) => s.models);
-  const diagrams         = useEditorStore((s) => s.diagrams);
-  const elements         = useEditorStore((s) => s.elements);
-  const connections      = useEditorStore((s) => s.connections);
-  const selectedDiagramId = useEditorStore((s) => s.selectedDiagramId);
-  const selectedElementId = useEditorStore((s) => s.selectedElementId);
-  const selectDiagram    = useEditorStore((s) => s.selectDiagram);
-  const loadModel        = useEditorStore((s) => s.loadModel);
-  const resetToMock      = useEditorStore((s) => s.resetToMock);
+const ARCADIA_VIEWS = [
+  {
+    code: "OA",
+    label: "Operational Analysis",
+    desc: "تحلیل فعالیت‌ها، موجودیت‌ها و تعاملات عملیاتی سیستم",
+    color: "from-amber-500 to-orange-600",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    textColor: "text-amber-700",
+  },
+  {
+    code: "SA",
+    label: "System Analysis",
+    desc: "تعریف توابع سیستم، FunctionalChain‌ها و رابط‌ها",
+    color: "from-blue-500 to-blue-700",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    textColor: "text-blue-700",
+  },
+  {
+    code: "LA",
+    label: "Logical Architecture",
+    desc: "تجزیه منطقی به کامپوننت‌های مستقل از تکنولوژی",
+    color: "from-emerald-500 to-green-700",
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    textColor: "text-emerald-700",
+  },
+  {
+    code: "PA",
+    label: "Physical Architecture",
+    desc: "نگاشت روی سخت‌افزار واقعی، مسیرهای ارتباطی فیزیکی",
+    color: "from-violet-500 to-purple-700",
+    bg: "bg-violet-50",
+    border: "border-violet-200",
+    textColor: "text-violet-700",
+  },
+  {
+    code: "EPBS",
+    label: "EPBS",
+    desc: "ساختار شکست محصول نهایی و پیکربندی آیتم‌ها",
+    color: "from-slate-500 to-slate-700",
+    bg: "bg-slate-50",
+    border: "border-slate-200",
+    textColor: "text-slate-700",
+  },
+];
 
-  const selectedDiagram = useMemo(
-    () => diagrams.find((d) => d.id === selectedDiagramId) ?? null,
-    [diagrams, selectedDiagramId]
-  );
+const FEATURES = [
+  {
+    icon: <GitMerge className="w-5 h-5" />,
+    title: "Traceability بلادرنگ",
+    desc: "پیوند خودکار عناصر بین لایه‌ها با RealizationLink. هر تغییر فوری قابل ردیابی است.",
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+  },
+  {
+    icon: <ShieldCheck className="w-5 h-5" />,
+    title: "Validation خودکار",
+    desc: "۱۰ قانون اعتبارسنجی Arcadia به‌صورت خودکار در حین مدل‌سازی اجرا می‌شود.",
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+  },
+  {
+    icon: <Network className="w-5 h-5" />,
+    title: "دیاگرام تعاملی",
+    desc: "Drag & Drop، Zoom، MiniMap و ویرایش inline روی canvas قدرتمند React Flow.",
+    color: "text-violet-600",
+    bg: "bg-violet-50",
+  },
+  {
+    icon: <Zap className="w-5 h-5" />,
+    title: "ذخیره خودکار",
+    desc: "تمام تغییرات بلافاصله در localStorage ذخیره می‌شود. هیچ کاری از دست نمی‌رود.",
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+  },
+  {
+    icon: <GitBranch className="w-5 h-5" />,
+    title: "FunctionalChain",
+    desc: "تعریف و highlight مسیرهای کامل FunctionalChain با رنگ‌بندی متمایز.",
+    color: "text-rose-600",
+    bg: "bg-rose-50",
+  },
+  {
+    icon: <Layers className="w-5 h-5" />,
+    title: "چند پروژه",
+    desc: "هر کاربر پروژه‌های جداگانه با مدل‌های مستقل دارد. مدیریت کامل از یک داشبورد.",
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+  },
+];
 
-  const selectedElement = useMemo(
-    () => selectedElementId ? (elements.find((e) => e.id === selectedElementId) ?? null) : null,
-    [elements, selectedElementId]
-  );
+// ----------------------------------------------------------------
+// Component
+// ----------------------------------------------------------------
 
-  const diagramElementCount = selectedDiagram
-    ? elements.filter((e) => e.diagramId === selectedDiagram.id).length
-    : 0;
+export default function LandingPage() {
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const router = useRouter();
 
-  // ---- Export ----
-  const [justSaved, setJustSaved] = useState(false);
-
-  const handleExport = () => {
-    const snapshot: ModelSnapshot = {
-      version: "1.0",
-      exportedAt: new Date().toISOString(),
-      project, models, diagrams, elements, connections,
-    };
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `${project.name.replace(/\s+/g, "_")}.arcadia.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setJustSaved(true);
-    setTimeout(() => setJustSaved(false), 2000);
-  };
-
-  // ---- Import ----
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const raw = JSON.parse(ev.target?.result as string);
-        if (!raw.project || !Array.isArray(raw.models) || !Array.isArray(raw.diagrams)
-          || !Array.isArray(raw.elements) || !Array.isArray(raw.connections)) {
-          throw new Error("ساختار فایل معتبر نیست");
-        }
-        loadModel(raw as ModelSnapshot);
-        setImportError(null);
-      } catch (err) {
-        setImportError(err instanceof Error ? err.message : "فایل قابل خواندن نیست");
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  };
-
-  const btnBase = "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors";
+  useEffect(() => {
+    if (currentUser) router.replace("/dashboard");
+  }, [currentUser, router]);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+    <div className="min-h-screen bg-white text-neutral-900">
 
-      {/* ---- Top Bar ---- */}
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-neutral-200 bg-white px-4 dark:border-neutral-800 dark:bg-neutral-950">
-        <span className="text-sm font-bold tracking-tight text-neutral-900 dark:text-white">
-          Arcadia Modeler
-        </span>
+      {/* ---- Navbar ---- */}
+      <nav className="sticky top-0 z-40 border-b border-neutral-100 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-sm">
+              <Layers className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-neutral-900 tracking-tight">Noqte</span>
+            <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">Beta</Badge>
+          </div>
 
-        {selectedDiagram && (
-          <>
-            <span className="text-neutral-300">/</span>
-            <span className="text-sm text-neutral-500">{project.name}</span>
-            <span className="text-neutral-300">/</span>
-            <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-800 dark:text-neutral-200">
-              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                {selectedDiagram.type}
-              </span>
-              {selectedDiagram.name}
-            </span>
-          </>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
-          {selectedDiagram && (
-            <span className="text-xs text-neutral-400">{diagramElementCount} عنصر</span>
-          )}
-
-          {justSaved ? (
-            <span className="flex items-center gap-1 text-[11px] text-green-600">
-              <CheckCircle2 size={12} /> ذخیره شد
-            </span>
-          ) : (
-            <span className="text-[10px] text-neutral-300">Auto-save فعال</span>
-          )}
-
-          <div className="h-4 w-px bg-neutral-200" />
-
-          <button onClick={handleExport}
-            className={`${btnBase} border border-neutral-200 text-neutral-600 hover:bg-neutral-50`}>
-            <Download size={13} /> Export
-          </button>
-
-          <button onClick={() => { setImportError(null); fileRef.current?.click(); }}
-            className={`${btnBase} border border-neutral-200 text-neutral-600 hover:bg-neutral-50`}>
-            <Upload size={13} /> Import
-          </button>
-          <input ref={fileRef} type="file" accept=".json,.arcadia.json"
-            className="hidden" onChange={handleFileChange} />
-
-          <button
-            onClick={() => { if (confirm("مدل به حالت اولیه بازنشانی می‌شود. ادامه می‌دهید؟")) resetToMock(); }}
-            className={`${btnBase} text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700`}
-            title="بازنشانی به داده‌های نمونه">
-            <RotateCcw size={12} />
-          </button>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">ورود</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/register">
+                شروع رایگان
+                <ArrowRight size={14} />
+              </Link>
+            </Button>
+          </div>
         </div>
-      </header>
+      </nav>
 
-      {/* ---- Import error notification ---- */}
-      {importError && (
-        <div className="flex shrink-0 items-center justify-between border-b border-red-200 bg-red-50 px-4 py-2">
-          <span className="text-xs text-red-600">خطا در بارگذاری: {importError}</span>
-          <button onClick={() => setImportError(null)} className="text-xs text-red-400 hover:text-red-600">×</button>
+      {/* ---- Hero ---- */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/50 to-white pt-20 pb-24">
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-blue-100/40 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full bg-indigo-100/30 blur-3xl" />
         </div>
-      )}
 
-      {/* ---- Main panels ---- */}
-      <div className="flex flex-1 overflow-hidden">
-        <ModelBrowser
-          project={project} models={models} diagrams={diagrams}
-          selectedDiagramId={selectedDiagramId} onSelectDiagram={selectDiagram}
-        />
-        <PropertiesPanel element={selectedElement} />
-        <main className="relative flex flex-1 overflow-hidden">
-          <DiagramEditor diagram={selectedDiagram} />
-        </main>
-        <Palette diagramType={selectedDiagram?.type ?? null} />
-      </div>
+        <div className="relative mx-auto max-w-4xl px-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm text-blue-700 mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            ابزار مدل‌سازی سیستم با متدولوژی Arcadia / Capella
+          </div>
 
-      {/* ---- Validation Bar (bottom) ---- */}
-      <ValidationBar />
+          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight text-neutral-900 leading-tight mb-6">
+            معماری سیستم،
+            <br />
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              لایه به لایه
+            </span>
+          </h1>
+
+          <p className="text-lg text-neutral-500 leading-relaxed max-w-2xl mx-auto mb-10">
+            از تحلیل عملیاتی تا معماری فیزیکی — همه لایه‌های Arcadia را در یک ابزار
+            وب تعاملی طراحی کنید، ردیابی کنید و اعتبارسنجی کنید.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" asChild className="text-base px-8">
+              <Link href="/register">
+                شروع رایگان
+                <ArrowRight size={18} />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild className="text-base px-8">
+              <Link href="/login">ورود به حساب</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- Arcadia Views ---- */}
+      <section className="py-20 bg-neutral-50">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-neutral-900 mb-3">
+              پنج لایه Arcadia
+            </h2>
+            <p className="text-neutral-500">
+              هر لایه دیدگاه متفاوتی از سیستم ارائه می‌دهد
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {ARCADIA_VIEWS.map((view, i) => (
+              <div key={view.code}
+                className={`relative rounded-2xl border ${view.border} ${view.bg} p-5 group hover:shadow-md transition-all duration-200`}
+              >
+                {/* Step number */}
+                <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-gradient-to-br shadow-sm text-white flex items-center justify-center text-xs font-bold"
+                  style={{ background: `linear-gradient(135deg, var(--tw-gradient-stops))` }}
+                >
+                  <span className={`w-full h-full rounded-full bg-gradient-to-br ${view.color} flex items-center justify-center`}>
+                    {i + 1}
+                  </span>
+                </div>
+
+                <div className={`inline-flex rounded-lg px-2 py-0.5 text-xs font-bold ${view.bg} ${view.textColor} border ${view.border} mb-3`}>
+                  {view.code}
+                </div>
+                <h3 className="font-semibold text-neutral-800 text-sm mb-1.5 leading-tight">
+                  {view.label}
+                </h3>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  {view.desc}
+                </p>
+
+                {/* Connector arrow */}
+                {i < ARCADIA_VIEWS.length - 1 && (
+                  <div className="hidden lg:block absolute -left-2 top-1/2 -translate-y-1/2 z-10">
+                    <ChevronRight className="w-4 h-4 text-neutral-300" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---- Features ---- */}
+      <section className="py-20 bg-white">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-neutral-900 mb-3">
+              ویژگی‌های کلیدی
+            </h2>
+            <p className="text-neutral-500">
+              همه آنچه برای مدل‌سازی حرفه‌ای سیستم نیاز دارید
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map((f) => (
+              <div key={f.title}
+                className="rounded-2xl border border-neutral-100 bg-white p-6 hover:shadow-md hover:border-neutral-200 transition-all duration-200 group"
+              >
+                <div className={`inline-flex w-10 h-10 rounded-xl ${f.bg} ${f.color} items-center justify-center mb-4`}>
+                  {f.icon}
+                </div>
+                <h3 className="font-semibold text-neutral-900 mb-2">{f.title}</h3>
+                <p className="text-sm text-neutral-500 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---- CTA ---- */}
+      <section className="py-20 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 w-64 h-64 rounded-full border border-white" />
+          <div className="absolute bottom-10 right-10 w-48 h-48 rounded-full border border-white" />
+        </div>
+        <div className="relative mx-auto max-w-3xl px-6 text-center text-white">
+          <h2 className="text-3xl font-bold mb-4">آماده شروع هستید؟</h2>
+          <p className="text-blue-200 mb-8 text-lg">
+            همین حالا یک حساب رایگان بسازید و اولین مدل Arcadia خود را طراحی کنید.
+          </p>
+          <Button size="lg" variant="outline"
+            className="text-base px-8 border-white bg-white text-blue-700 hover:bg-blue-50 hover:border-blue-50"
+            asChild
+          >
+            <Link href="/register">
+              شروع رایگان
+              <ArrowRight size={18} />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* ---- Footer ---- */}
+      <footer className="border-t border-neutral-100 py-8">
+        <div className="mx-auto max-w-6xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center">
+              <Layers className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-700">Noqte</span>
+          </div>
+          <p className="text-xs text-neutral-400">
+            ابزار مدل‌سازی سیستم با متدولوژی Arcadia/Capella
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
