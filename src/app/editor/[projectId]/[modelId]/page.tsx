@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   Download, Upload, RotateCcw, CheckCircle2, ChevronRight,
-  Layers, LogOut,
+  Layers, LogOut, Zap, LayoutGrid,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
 import { useProjectStore } from "@/lib/projectStore";
@@ -15,6 +15,8 @@ import ModelBrowser from "@/presentation/components/ModelBrowser";
 import DiagramEditor from "@/presentation/components/DiagramEditor";
 import Palette from "@/presentation/components/Palette";
 import PropertiesPanel from "@/presentation/components/PropertiesPanel";
+import TraceabilityPanel from "@/presentation/components/TraceabilityPanel";
+import OverviewPanel from "@/presentation/components/OverviewPanel";
 import ValidationBar from "@/presentation/components/ValidationBar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -76,6 +78,15 @@ function EditorContent() {
   useEffect(() => {
     if (!project || !model) router.replace("/dashboard");
   }, [project, model, router]);
+
+  // ---- Panel visibility ----
+  const [showTracePanel, setShowTracePanel] = useState(false);
+  const [showOverview,   setShowOverview  ] = useState(false);
+
+  // Close trace panel when element is deselected
+  useEffect(() => {
+    if (!selectedElementId) setShowTracePanel(false);
+  }, [selectedElementId]);
 
   // ---- Export ----
   const [justSaved, setJustSaved] = useState(false);
@@ -187,6 +198,36 @@ function EditorContent() {
 
           <div className="h-4 w-px bg-neutral-200 mx-0.5" />
 
+          {/* Overview button */}
+          <button
+            onClick={() => setShowOverview(true)}
+            className={`${btnBase} border border-neutral-200 text-neutral-600 hover:bg-neutral-50`}
+            title="نمای کلی تمام لایه‌ها"
+          >
+            <LayoutGrid size={13} />
+            <span className="hidden sm:block">Overview</span>
+          </button>
+
+          {/* Smart Trace panel toggle */}
+          <button
+            onClick={() => {
+              if (!selectedElementId) return;
+              setShowTracePanel((v) => !v);
+            }}
+            disabled={!selectedElementId}
+            className={`${btnBase} border transition-colors ${
+              showTracePanel
+                ? "border-blue-300 bg-blue-50 text-blue-700"
+                : "border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40"
+            }`}
+            title={selectedElementId ? "پنل ردیابی هوشمند" : "یک عنصر را انتخاب کنید"}
+          >
+            <Zap size={13} />
+            <span className="hidden sm:block">Trace</span>
+          </button>
+
+          <div className="h-4 w-px bg-neutral-200 mx-0.5" />
+
           <button onClick={handleExport}
             className={`${btnBase} border border-neutral-200 text-neutral-600 hover:bg-neutral-50`}>
             <Download size={13} /> Export
@@ -255,11 +296,23 @@ function EditorContent() {
         <main className="relative flex flex-1 overflow-hidden">
           <DiagramEditor diagram={selectedDiagram} />
         </main>
+        {/* Smart Traceability Panel */}
+        {showTracePanel && selectedElement && (
+          <TraceabilityPanel
+            element={selectedElement}
+            onClose={() => setShowTracePanel(false)}
+          />
+        )}
         <Palette diagramType={selectedDiagram?.type ?? null} />
       </div>
 
       {/* ---- Validation Bar ---- */}
       <ValidationBar />
+
+      {/* ---- Overview Panel (full-screen overlay) ---- */}
+      {showOverview && (
+        <OverviewPanel onClose={() => setShowOverview(false)} />
+      )}
     </div>
   );
 }
