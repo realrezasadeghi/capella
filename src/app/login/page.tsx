@@ -3,22 +3,20 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Layers, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Layers, ArrowRight, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const currentUser = useAuthStore((s) => s.currentUser);
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) router.replace("/dashboard");
@@ -28,161 +26,216 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 400));
     const result = login(email, password);
     setLoading(false);
-    if (!result.ok) {
-      setError(result.error ?? "خطا در ورود");
-    } else {
-      router.replace("/dashboard");
-    }
+    if (!result.ok) setError(result.error ?? "خطا در ورود");
+    else router.replace("/dashboard");
   };
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-neutral-50 via-blue-50/30 to-neutral-100">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white relative overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-72 h-72 rounded-full border border-white/40" />
-          <div className="absolute top-40 left-40 w-96 h-96 rounded-full border border-white/20" />
-          <div className="absolute bottom-20 right-20 w-64 h-64 rounded-full border border-white/30" />
-        </div>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#05050f]">
 
-        <div className="relative">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-              <Layers className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">Noqte</span>
-          </div>
-
-          <h1 className="text-4xl font-bold leading-tight mb-4">
-            مدل‌سازی سیستم‌های پیچیده<br />
-            با متدولوژی Arcadia
-          </h1>
-          <p className="text-blue-200 text-lg leading-relaxed">
-            طراحی معماری سیستم از لایه عملیاتی تا فیزیکی،
-            با ابزاری که تیم‌های MBSE را متحد می‌کند.
-          </p>
-        </div>
-
-        {/* Feature pills */}
-        <div className="relative space-y-3">
-          {[
-            { label: "Operational Analysis (OA)", color: "bg-amber-400/20" },
-            { label: "System Architecture (SA)", color: "bg-blue-400/20" },
-            { label: "Logical Architecture (LA)", color: "bg-emerald-400/20" },
-            { label: "Physical Architecture (PA)", color: "bg-purple-400/20" },
-          ].map((item) => (
-            <div key={item.label} className={`inline-flex items-center gap-2 rounded-full ${item.color} border border-white/10 px-4 py-2 text-sm text-white/90 mr-2`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-              {item.label}
-            </div>
-          ))}
-        </div>
+      {/* ── Gradient orbs ── */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-violet-600/20 blur-[120px]" />
+        <div className="absolute top-1/2 -right-60 w-[500px] h-[500px] rounded-full bg-blue-500/15 blur-[100px]" />
+        <div className="absolute -bottom-40 left-1/3 w-[400px] h-[400px] rounded-full bg-indigo-500/20 blur-[90px]" />
       </div>
 
-      {/* Right panel — login form */}
-      <div className="flex flex-1 items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-10 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <Layers className="w-4 h-4 text-white" />
+      {/* ── Subtle grid ── */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+        }}
+      />
+
+      {/* ── Card ── */}
+      <div className="relative w-full max-w-[420px] mx-4">
+
+        {/* Card glow border */}
+        <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-white/15 via-white/5 to-transparent" />
+
+        <div className="relative rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/10 p-8 shadow-2xl">
+
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <Layers className="w-4.5 h-4.5 text-white" size={18} />
             </div>
-            <span className="font-bold text-neutral-900">Noqte</span>
+            <div>
+              <span className="font-bold text-white tracking-tight">Noqte</span>
+              <span className="ml-2 text-[10px] font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5">
+                MBSE
+              </span>
+            </div>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-neutral-900">خوش برگشتید</h2>
-            <p className="text-neutral-500 mt-1 text-sm">
-              وارد حساب کاربری خود شوید
+          {/* Heading */}
+          <div className="mb-7">
+            <h1 className="text-2xl font-bold text-white mb-1.5">
+              خوش برگشتید
+            </h1>
+            <p className="text-sm text-white/40">
+              وارد حساب کاربری خود شوید تا ادامه دهید
             </p>
           </div>
 
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email">ایمیل</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="example@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-                className="h-10"
-                dir="ltr"
-              />
+              <label className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+                ایمیل
+              </label>
+              <div className={`relative rounded-xl border transition-all duration-200 ${
+                focused === "email"
+                  ? "border-violet-500/60 shadow-[0_0_0_3px_rgba(139,92,246,0.12)]"
+                  : "border-white/8 hover:border-white/15"
+              }`}>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocused("email")}
+                  onBlur={() => setFocused(null)}
+                  autoComplete="email"
+                  required
+                  dir="ltr"
+                  className="w-full bg-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none"
+                />
+              </div>
             </div>
 
+            {/* Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="password">رمز عبور</Label>
-              <div className="relative">
-                <Input
-                  id="password"
+              <label className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+                رمز عبور
+              </label>
+              <div className={`relative rounded-xl border transition-all duration-200 ${
+                focused === "pass"
+                  ? "border-violet-500/60 shadow-[0_0_0_3px_rgba(139,92,246,0.12)]"
+                  : "border-white/8 hover:border-white/15"
+              }`}>
+                <input
                   type={showPass ? "text" : "password"}
-                  placeholder="رمز عبور"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocused("pass")}
+                  onBlur={() => setFocused(null)}
                   autoComplete="current-password"
                   required
-                  className="h-10 pr-10"
+                  className="w-full bg-white/5 rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder:text-white/25 outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
                   tabIndex={-1}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
                 >
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
+            {/* Error */}
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-600">
-                {error}
+              <div className="flex items-center gap-2.5 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                <p className="text-sm text-red-400">{error}</p>
               </div>
             )}
 
-            <Button
+            {/* Submit */}
+            <button
               type="submit"
-              className="w-full h-10 mt-2"
               disabled={loading}
+              className="relative w-full mt-1 overflow-hidden rounded-xl px-4 py-3 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed group"
+              style={{
+                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)",
+                boxShadow: "0 4px 24px rgba(124,58,237,0.35)",
+              }}
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  در حال ورود...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  ورود به حساب
-                  <ArrowRight size={16} />
-                </span>
-              )}
-            </Button>
+              {/* Hover shimmer */}
+              <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{ background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%)" }} />
+
+              <span className="relative flex items-center justify-center gap-2">
+                {loading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    در حال ورود...
+                  </>
+                ) : (
+                  <>
+                    ورود به حساب
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </span>
+            </button>
           </form>
 
-          <p className="text-center text-sm text-neutral-500 mt-6">
-            حساب کاربری ندارید؟{" "}
-            <Link
-              href="/register"
-              className="font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
-            >
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-white/8" />
+            <span className="text-xs text-white/20">یا</span>
+            <div className="flex-1 h-px bg-white/8" />
+          </div>
+
+          {/* Sign up link */}
+          <p className="text-center text-sm text-white/40">
+            حساب ندارید؟{" "}
+            <Link href="/register"
+              className="font-semibold text-violet-400 hover:text-violet-300 transition-colors">
               ثبت نام کنید
             </Link>
           </p>
-
-          <p className="text-center text-xs text-neutral-400 mt-8">
-            بازگشت به{" "}
-            <Link href="/" className="hover:text-neutral-600 transition-colors underline underline-offset-2">
-              صفحه اصلی
-            </Link>
-          </p>
         </div>
+
+        {/* Back link */}
+        <p className="text-center text-xs text-white/20 mt-5">
+          <Link href="/" className="hover:text-white/40 transition-colors">
+            ← بازگشت به صفحه اصلی
+          </Link>
+        </p>
+      </div>
+
+      {/* ── Arcadia layers floating badge ── */}
+      <div className="pointer-events-none absolute bottom-8 left-8 hidden lg:flex flex-col gap-2">
+        {[
+          { code: "OA", color: "#f59e0b" },
+          { code: "SA", color: "#3b82f6" },
+          { code: "LA", color: "#10b981" },
+          { code: "PA", color: "#8b5cf6" },
+          { code: "EPBS", color: "#64748b" },
+        ].map((v, i) => (
+          <div
+            key={v.code}
+            className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur-sm"
+            style={{
+              borderColor: v.color + "30",
+              backgroundColor: v.color + "10",
+              color: v.color,
+              opacity: 0.7 - i * 0.07,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: v.color }} />
+            {v.code}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Feature badge top right ── */}
+      <div className="pointer-events-none absolute top-8 right-8 hidden lg:flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/40 backdrop-blur-sm">
+        <Sparkles size={12} className="text-violet-400" />
+        ابزار مدل‌سازی سیستم Arcadia / Capella
       </div>
     </div>
   );
