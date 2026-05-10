@@ -37,12 +37,14 @@ import type {
 } from "@/domain/entities";
 import { ValidationEngine } from "@/domain/services/ValidationEngine";
 import { ArcadiaNode, type ArcadiaNodeData } from "./ArcadiaNode";
+import { ArcadiaEdge, type ArcadiaEdgeData } from "./ArcadiaEdge";
 
 // ----------------------------------------------------------------
-// Node types — stable reference
+// Node/Edge types — stable references (must be outside component)
 // ----------------------------------------------------------------
 
 const NODE_TYPES = { arcadia: ArcadiaNode };
+const EDGE_TYPES = { arcadia: ArcadiaEdge };
 
 // ----------------------------------------------------------------
 // Converters
@@ -51,7 +53,8 @@ const NODE_TYPES = { arcadia: ArcadiaNode };
 function elementToNode(
   el: ArcadiaElement,
   errorIds: Set<string>,
-  highlightIds: Set<string>
+  highlightIds: Set<string>,
+  chainIds: Set<string>
 ): Node<ArcadiaNodeData> {
   return {
     id: el.id,
@@ -63,20 +66,35 @@ function elementToNode(
       name: el.name,
       hasError: errorIds.has(el.id),
       isInTraceChain: highlightIds.has(el.id),
+      isInFunctionalChain: chainIds.has(el.id),
     },
     style: { width: el.size?.width ?? 160 },
   };
 }
 
-function connectionToEdge(conn: ArcadiaConnection): Edge {
+function connectionToEdge(
+  conn: ArcadiaConnection,
+  allElements: ArcadiaElement[],
+  chainIds: Set<string>
+): Edge<ArcadiaEdgeData> {
+  const isChain = chainIds.has(conn.sourceId) && chainIds.has(conn.targetId);
+  const exchangeItems = conn.exchangeItemIds
+    .map((id) => allElements.find((e) => e.id === id)?.name ?? id)
+    .filter(Boolean);
+
   return {
     id: conn.id,
     source: conn.sourceId,
     target: conn.targetId,
-    label: conn.label || undefined,
-    animated: conn.kind === "RealizationLink",
+    type: "arcadia",
     markerEnd: { type: MarkerType.ArrowClosed },
-    style: { strokeWidth: 2 },
+    data: {
+      connectionKind: conn.kind,
+      label: conn.label || undefined,
+      exchangeItems,
+      isChainHighlighted: isChain,
+      isRealization: conn.kind === "RealizationLink",
+    },
   };
 }
 
@@ -188,6 +206,7 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
   const allElements      = useEditorStore((s) => s.elements);
   const validationResults     = useEditorStore((s) => s.validationResults);
   const crossViewHighlightIds = useEditorStore((s) => s.crossViewHighlightIds);
+  const highlightedChainIds   = useEditorStore((s) => s.highlightedChainIds);
 
   const updateElementPosition = useEditorStore((s) => s.updateElementPosition);
   const addElementToStore     = useEditorStore((s) => s.addElement);
@@ -206,22 +225,27 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
     [crossViewHighlightIds]
   );
 
+  const chainSet = useMemo(
+    () => new Set(highlightedChainIds),
+    [highlightedChainIds]
+  );
+
   // Local React Flow state
   const [nodes, setNodes] = useState<Node[]>(() =>
-    storeElements.map((el) => elementToNode(el, errorElementIds, highlightSet))
+    storeElements.map((el) => elementToNode(el, errorElementIds, highlightSet, chainSet))
   );
   const [edges, setEdges] = useState<Edge[]>(() =>
-    storeConnections.map(connectionToEdge)
+    storeConnections.map((c) => connectionToEdge(c, allElements, chainSet))
   );
 
   // Re-sync nodes when store data or highlight changes
   useEffect(() => {
-    setNodes(storeElements.map((el) => elementToNode(el, errorElementIds, highlightSet)));
-  }, [storeElements, errorElementIds, highlightSet]);
+    setNodes(storeElements.map((el) => elementToNode(el, errorElementIds, highlightSet, chainSet)));
+  }, [storeElements, errorElementIds, highlightSet, chainSet]);
 
   useEffect(() => {
-    setEdges(storeConnections.map(connectionToEdge));
-  }, [storeConnections.length]); // eslint-disable-line
+    setEdges(storeConnections.map((c) => connectionToEdge(c, allElements, chainSet)));
+  }, [storeConnections, allElements, chainSet]); // eslint-disable-line
 
   // RF instance
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
@@ -294,15 +318,20 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
       };
 
       addConnectionToStore(newConn);
-      setEdges((prev) =>
-        addEdge({
-          ...connection,
-          id: newConn.id,
-          animated: connKind === "RealizationLink",
-          markerEnd: { type: MarkerType.ArrowClosed },
-          style: { strokeWidth: 2 },
-        }, prev)
-      );
+      const newEdge: Edge<ArcadiaEdgeData> = {
+        id: newConn.id,
+        source: connection.source,
+        target: connection.target,
+        type: "arcadia",
+        markerEnd: { type: MarkerType.ArrowClosed },
+        data: {
+          connectionKind: connKind,
+          exchangeItems: [],
+          isChainHighlighted: false,
+          isRealization: connKind === "RealizationLink",
+        },
+      };
+      setEdges((prev) => addEdge(newEdge, prev));
     },
     [allElements, diagram, addConnectionToStore]
   );
@@ -360,6 +389,7 @@ function DiagramCanvas({ diagram }: { diagram: Diagram }) {
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         deleteKeyCode="Delete"
         fitView
         fitViewOptions={{ padding: 0.2 }}

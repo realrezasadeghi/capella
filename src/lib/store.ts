@@ -148,6 +148,7 @@ export interface EditorStore extends PersistedState {
   // UI (not persisted)
   selectedElementId: string | null;
   crossViewHighlightIds: string[];
+  highlightedChainIds: string[];
   focusElementId: string | null;
   validationResults: ValidationResult[];
   validationVisible: boolean;
@@ -215,6 +216,7 @@ export const useEditorStore = create<EditorStore>()(
       // ---- UI state ----
       selectedElementId: null,
       crossViewHighlightIds: [],
+      highlightedChainIds: [],
       focusElementId: null,
       validationResults: [],
       validationVisible: false,
@@ -226,7 +228,9 @@ export const useEditorStore = create<EditorStore>()(
       selectElement: (id) => {
         const elements = get().elements;
         const highlight = id ? computeTraceChainIds(id, elements) : [];
-        set({ selectedElementId: id, crossViewHighlightIds: highlight });
+        const el = id ? elements.find((e) => e.id === id) : null;
+        const chainIds = el?.kind === "FunctionalChain" ? el.realizationIds : [];
+        set({ selectedElementId: id, crossViewHighlightIds: highlight, highlightedChainIds: chainIds });
       },
 
       navigateTo: (elementId) => {
@@ -236,11 +240,13 @@ export const useEditorStore = create<EditorStore>()(
         const diagram = diagrams.find((d) => d.id === el.diagramId);
         if (!diagram) return;
         const highlight = computeTraceChainIds(elementId, elements);
+        const chainIds = el.kind === "FunctionalChain" ? el.realizationIds : [];
         set({
           selectedDiagramId: diagram.id,
           selectedElementId: elementId,
           focusElementId: elementId,
           crossViewHighlightIds: highlight,
+          highlightedChainIds: chainIds,
         });
       },
 
@@ -410,6 +416,7 @@ export const useEditorStore = create<EditorStore>()(
           selectedDiagramId: snapshot.diagrams[0]?.id ?? "",
           selectedElementId: null,
           crossViewHighlightIds: [],
+          highlightedChainIds: [],
           focusElementId: null,
           validationResults: [],
           validationVisible: false,
@@ -420,7 +427,7 @@ export const useEditorStore = create<EditorStore>()(
           project: MOCK_PROJECT, models: [MOCK_MODEL], diagrams: MOCK_DIAGRAMS,
           elements: MOCK_ELEMENTS, connections: MOCK_CONNECTIONS,
           selectedDiagramId: "d1", selectedElementId: null,
-          crossViewHighlightIds: [], focusElementId: null,
+          crossViewHighlightIds: [], highlightedChainIds: [], focusElementId: null,
           validationResults: [], validationVisible: false,
         }),
     }),
