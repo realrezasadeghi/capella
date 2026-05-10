@@ -50,12 +50,23 @@ const EDGE_TYPES = { arcadia: ArcadiaEdge };
 // Converters
 // ----------------------------------------------------------------
 
+// Default widths per kind category — matches shape proportions
+const KIND_DEFAULT_WIDTH: Partial<Record<ElementKind, number>> = {
+  OperationalEntity: 170,  OperationalActivity: 150,  OperationalInteraction: 130,
+  SystemFunction: 150,     SystemExchangeItem: 140,   SystemInterface: 130,   FunctionalChain: 175,
+  LogicalComponent: 170,   LogicalFunction: 150,      LogicalInterface: 130,  LogicalExchangeItem: 140,
+  PhysicalComponent: 170,  PhysicalFunction: 150,     PhysicalInterface: 130,
+  PhysicalLink: 130,       PhysicalExchangeItem: 140, PhysicalPort: 30,
+  ConfigurationItem: 160,  ExchangePort: 30,          FunctionPort: 30,       RealizationLink: 130,
+};
+
 function elementToNode(
   el: ArcadiaElement,
   errorIds: Set<string>,
   highlightIds: Set<string>,
   chainIds: Set<string>
 ): Node<ArcadiaNodeData> {
+  const defaultW = KIND_DEFAULT_WIDTH[el.kind] ?? 160;
   return {
     id: el.id,
     type: "arcadia",
@@ -68,7 +79,7 @@ function elementToNode(
       isInTraceChain: highlightIds.has(el.id),
       isInFunctionalChain: chainIds.has(el.id),
     },
-    style: { width: el.size?.width ?? 160 },
+    style: { width: el.size?.width ?? defaultW },
   };
 }
 
